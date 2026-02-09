@@ -1,0 +1,48 @@
+version: 1
+name: "Everything Server HTTP Test"
+
+server:
+  transport: "http"
+  url: "http://localhost:3005/mcp"
+
+env:
+  TEST_MESSAGE: "Hello from MCP tester!"
+
+defaults:
+  timeout_ms: 10000
+  retries: 0
+
+steps:
+  # Step 1: Call the echo tool
+  - id: echo_test
+    type: tool_call
+    tool: "echo"
+    input:
+      message: "{{env.TEST_MESSAGE}}"
+    save: "$"
+
+  # Step 2: Assert echo response exists
+  - id: assert_echo_response
+    type: assert
+    from: "echo_test"
+    check:
+      op: "jsonpath_exists"
+      path: "$"
+
+  # Step 3: Call add tool (if available)
+  - id: add_numbers
+    type: tool_call
+    tool: "add"
+    input:
+      a: 5
+      b: 3
+    save: "$"
+
+  # Step 4: Assert add result
+  - id: assert_add_result
+    type: assert
+    from: "add_numbers"
+    check:
+      op: "jsonpath_exists"
+      path: "$"
+

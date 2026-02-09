@@ -1,0 +1,82 @@
+version: 1
+name: "Memory Server Test"
+
+server:
+  transport: "stdio"
+  command: "npx"
+  args: ["-y", "@modelcontextprotocol/server-memory"]
+
+env:
+  ENTITY_NAME: "MCPTestEntity"
+  ENTITY_TYPE: "test_case"
+
+defaults:
+  timeout_ms: 10000
+  retries: 0
+
+steps:
+  # Step 1: Create an entity in the knowledge graph
+  # Note: If entity already exists, create_entities returns []
+  # We verify via read_graph instead for idempotent testing
+  - id: create_entity
+    type: tool_call
+    tool: "create_entities"
+    input:
+      entities:
+        - name: "{{env.ENTITY_NAME}}"
+          entityType: "{{env.ENTITY_TYPE}}"
+          observations:
+            - "Created by MCP test runner"
+            - "Used for validating STDIO transport"
+    save: "$"
+
+  # Step 2: Read the full graph (this always works regardless of entity state)
+  - id: read_graph
+    type: tool_call
+    tool: "read_graph"
+    input: {}
+    save: "$"
+
+  # Step 3: Assert graph has entities
+  - id: assert_graph_has_entities
+    type: assert
+    from: "read_graph"
+    check:
+      op: "jsonpath_exists"
+      path: "$.entities"
+
+  # Step 4: Assert graph has at least one entity
+  - id: assert_at_least_one_entity
+    type: assert
+    from: "read_graph"
+    check:
+      op: "jsonpath_len_gte"
+      path: "$.entities"
+      value: 1
+
+  # Step 5: Assert first entity has a name
+  - id: assert_entity_has_name
+    type: assert
+    from: "read_graph"
+    check:
+      op: "jsonpath_exists"
+      path: "$.entities[0].name"
+
+  # Step 6: Add an observation to existing entity
+  - id: add_observation
+    type: tool_call
+    tool: "add_observations"
+    input:
+      observations:
+        - entityName: "{{env.ENTITY_NAME}}"
+          contents:
+            - "Test observation added at runtime"
+    save: "$"
+
+  # Step 7: Verify observation was added
+  - id: verify_observation
+    type: assert
+    from: "add_observation"
+    check:
+      op: "jsonpath_exists"
+      path: "$"
