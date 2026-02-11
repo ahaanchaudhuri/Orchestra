@@ -105,6 +105,7 @@ async def run_collection_async(
     collection: Collection,
     verbose: bool = True,
     quiet: bool = False,
+    show_responses: bool = False,
 ) -> Reporter:
     """Execute a collection and return the reporter with results."""
     reporter = Reporter.from_collection(collection)
@@ -201,6 +202,17 @@ async def run_collection_async(
                         reporter.complete_step_success(step.id, output=result)
                         if verbose and not quiet:
                             console.print(f"  [green]✅ Success[/green]")
+                            
+                            # Show response if flag is set
+                            if show_responses and result:
+                                console.print(f"  [dim]Response:[/dim]")
+                                response_str = json.dumps(result, indent=2)
+                                # Truncate if too long
+                                if len(response_str) > 500:
+                                    console.print(f"  [dim]{response_str[:500]}...[/dim]")
+                                    console.print(f"  [dim]  (truncated, {len(response_str)} total chars)[/dim]")
+                                else:
+                                    console.print(f"  [dim]{response_str}[/dim]")
                     else:
                         error_msg = response.error.message if response.error else "Unknown error"
                         reporter.complete_step_error(step.id, error_msg)
@@ -291,12 +303,16 @@ def run(
         False, "--quiet", "-q",
         help="Only show errors and final status"
     ),
+    show_responses: bool = typer.Option(
+        False, "--show-responses", "-r",
+        help="Show tool call responses (can be verbose)"
+    ),
     output: str = typer.Option(
         "text", "--output", "-o",
         help="Output format: text or json"
     ),
     report_dir: Path = typer.Option(
-        Path("reports"), "--report-dir", "-r",
+        Path("reports"), "--report-dir", "-R",
         help="Directory to save JSON reports"
     ),
     no_report: bool = typer.Option(
@@ -325,7 +341,7 @@ def run(
         console.print(f"   [green]✅ Valid collection:[/green] {collection.name}")
     
     # Run the collection
-    reporter = asyncio.run(run_collection_async(collection, verbose, quiet))
+    reporter = asyncio.run(run_collection_async(collection, verbose, quiet, show_responses))
     report = reporter.report
     
     # Output results
