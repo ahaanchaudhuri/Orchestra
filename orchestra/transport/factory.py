@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from .base import BaseTransport
 from .http import HTTPTransport
 from .stdio import STDIOTransport
+from .sse import SSETransport
 
 if TYPE_CHECKING:
     from ..schema_parsing import ServerConfig
@@ -53,6 +54,14 @@ def create_transport(config: ServerConfig) -> BaseTransport:
         return STDIOTransport(
             command=config.command,
             args=config.args,
+        )
+
+    elif config.transport == TransportType.SSE:
+        if not config.url:
+            raise ValueError("SSE transport requires a 'url' in server config")
+        return SSETransport(
+            base_url=config.url,
+            auth_config=config.auth,
         )
 
     else:

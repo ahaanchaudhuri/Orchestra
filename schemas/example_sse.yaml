@@ -1,0 +1,57 @@
+# Example: SSE Transport
+# Tests the MCP SSE transport pattern
+#
+# To run this example:
+#   1. Start the server-everything in SSE mode:
+#      PORT=3001 npx -y @modelcontextprotocol/server-everything sse
+#
+#   2. Run this collection:
+#      orchestra run schemas/example_sse.yaml
+
+version: 1
+name: "SSE Transport Example"
+
+server:
+  transport: "sse"
+  url: "http://localhost:3001"
+  # For custom wrappers that use GET /sse/{user_id}, add:
+  # user_id: "my-user-id"
+
+env: {}
+
+defaults:
+  timeout_ms: 30000
+  retries: 0
+
+steps:
+  # Test echo tool
+  - id: test_echo
+    type: tool_call
+    tool: "echo"
+    input:
+      message: "Hello from Orchestra SSE transport!"
+    save: "$"
+
+  - id: assert_echo_response
+    type: assert
+    from: "test_echo"
+    check:
+      op: "jsonpath_exists"
+      path: "$"
+
+  # Test get-sum tool
+  - id: test_sum
+    type: tool_call
+    tool: "get-sum"
+    input:
+      a: 42
+      b: 58
+    save: "$"
+
+  - id: assert_sum_exists
+    type: assert
+    from: "test_sum"
+    check:
+      op: "jsonpath_exists"
+      path: "$"
+

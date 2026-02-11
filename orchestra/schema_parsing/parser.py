@@ -55,6 +55,7 @@ class SchemaParser:
             command=server.get("command"),
             args=server.get("args", []),
             auth=self._parse_auth(server.get("auth")),
+            env=server.get("env", {}),
         )
 
     def _parse_auth(self, auth_data: dict | None) -> AuthConfig | None:
@@ -111,4 +112,3 @@ class SchemaParser:
             from_step=step["from"],
             check=check,
         )
-

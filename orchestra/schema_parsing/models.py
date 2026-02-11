@@ -36,6 +36,7 @@ class TransportType(str, Enum):
     """MCP server transport types."""
     HTTP = "http"
     STDIO = "stdio"
+    SSE = "sse"  # SSE-based transport (older MCP pattern)
 
 
 class AuthType(str, Enum):
@@ -78,10 +79,11 @@ class AuthConfig:
 class ServerConfig:
     """Configuration for connecting to an MCP server."""
     transport: TransportType
-    url: str | None = None  # Required for HTTP
+    url: str | None = None  # Required for HTTP/SSE
     command: str | None = None  # Required for STDIO
     args: list[str] = field(default_factory=list)
-    auth: AuthConfig | None = None  # Optional auth for HTTP
+    auth: AuthConfig | None = None  # Optional auth for HTTP/SSE
+    env: dict[str, str] = field(default_factory=dict)  # Environment variables for STDIO
 
 
 @dataclass

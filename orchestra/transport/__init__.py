@@ -35,6 +35,7 @@ from .factory import create_transport
 from .base import BaseTransport
 from .http import HTTPTransport, StreamableHTTPTransport
 from .stdio import STDIOTransport
+from .sse import SSETransport
 
 # Models
 from .models import (
@@ -54,6 +55,7 @@ __all__ = [
     "HTTPTransport",
     "StreamableHTTPTransport",
     "STDIOTransport",
+    "SSETransport",
     # Models
     "MCPError",
     "MCPErrorCode",

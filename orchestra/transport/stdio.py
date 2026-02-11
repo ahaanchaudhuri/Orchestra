@@ -58,13 +58,20 @@ class STDIOTransport(BaseTransport):
         try:
             # Build the full command
             cmd = [self.command] + self.args
+            
+            # Merge provided env with parent process env
+            # This allows subprocess to access both custom and system env vars
+            import os
+            proc_env = os.environ.copy()
+            if self.env:
+                proc_env.update(self.env)
 
             self._process = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
-                env=self.env,
+                env=proc_env,
             )
             self._connected = True
 

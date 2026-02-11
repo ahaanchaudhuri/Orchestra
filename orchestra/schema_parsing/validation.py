@@ -201,6 +201,33 @@ class SchemaValidator:
                     suggestion="Add 'command: \"path/to/executable\"' to server config"
                 )
 
+        elif transport == "sse":
+            url = server.get("url")
+            if not url:
+                self.result.add_error(
+                    "server.url",
+                    "Required when transport is 'sse'",
+                    suggestion="Add 'url: \"http://localhost:3001\"' to server config"
+                )
+            elif not isinstance(url, str):
+                self.result.add_error(
+                    "server.url",
+                    "Must be a string",
+                    value=url
+                )
+            elif not (url.startswith("http://") or url.startswith("https://")):
+                self.result.add_error(
+                    "server.url",
+                    "Must be a valid HTTP(S) URL",
+                    value=url,
+                    suggestion="URL should start with 'http://' or 'https://'"
+                )
+
+            # Validate auth if present
+            auth = server.get("auth")
+            if auth is not None:
+                self._validate_auth(auth)
+
     def _validate_env(self) -> None:
         env = self.data.get("env")
         if env is None:

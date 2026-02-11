@@ -35,6 +35,7 @@ from .transport import (
     ToolCallRequest,
     STDIOTransport,
     HTTPTransport,
+    SSETransport,
 )
 from .assertions import AssertionEngine
 from .reporting import Reporter, StepStatus
@@ -114,13 +115,26 @@ async def run_collection_async(
     # Interpolate auth config
     interpolated_auth = interpolate_auth_config(collection.server.auth, collection.env)
     
-    # Create transport
-    if collection.server.transport.value == "stdio":
+    # Interpolate server env vars (for STDIO transport)
+    interpolated_server_env = {
+        key: interpolate_value(value, collection.env, {})
+        for key, value in collection.server.env.items()
+    }
+    
+    # Create transport based on type
+    transport_type = collection.server.transport.value
+    if transport_type == "stdio":
         transport = STDIOTransport(
             command=collection.server.command,
             args=collection.server.args,
+            env=interpolated_server_env,
         )
-    else:
+    elif transport_type == "sse":
+        transport = SSETransport(
+            base_url=collection.server.url,
+            auth_config=interpolated_auth,
+        )
+    else:  # http
         transport = HTTPTransport(
             url=collection.server.url,
             auth_config=interpolated_auth,
@@ -395,7 +409,7 @@ MCP Server Testing and Orchestration Tool
 
 [bold]Features:[/bold]
   • Declarative YAML test collections
-  • STDIO and Streamable HTTP transports
+  • STDIO, Streamable HTTP, and SSE transports
   • JSONPath-based assertions
   • Authentication support (Bearer, API Key, Basic)
   • Detailed JSON run reports
