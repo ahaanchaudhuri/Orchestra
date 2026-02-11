@@ -21,15 +21,31 @@ steps:
       message: "{{env.TEST_MESSAGE}}"
     save: "$"
 
-  # Step 2: Assert echo response exists
-  - id: assert_echo_response
+  # Step 2: Assert echo response has no error
+  - id: assert_echo_no_error
+    type: assert
+    from: "echo_test"
+    check:
+      op: "no_error"
+
+  # Step 3: Assert echo content exists
+  - id: assert_echo_content
     type: assert
     from: "echo_test"
     check:
       op: "jsonpath_exists"
-      path: "$"
+      path: "$.content[0].text"
 
-  # Step 3: Call add tool (if available)
+  # Step 4: Assert echo message contains expected text
+  - id: assert_echo_message
+    type: assert
+    from: "echo_test"
+    check:
+      op: "jsonpath_contains"
+      path: "$.content[0].text"
+      value: "Hello from MCP tester!"
+
+  # Step 5: Call add tool (this tool doesn't exist, should error)
   - id: add_numbers
     type: tool_call
     tool: "add"
@@ -38,11 +54,10 @@ steps:
       b: 3
     save: "$"
 
-  # Step 4: Assert add result
-  - id: assert_add_result
+  # Step 6: Assert that add call returns an error
+  - id: assert_add_is_error
     type: assert
     from: "add_numbers"
     check:
-      op: "jsonpath_exists"
-      path: "$"
+      op: "is_error"
 

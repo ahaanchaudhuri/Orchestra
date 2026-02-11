@@ -417,13 +417,16 @@ class SchemaValidator:
                 suggestion=f"Valid operators: {', '.join(sorted(self.VALID_ASSERT_OPS))}"
             )
 
+        # Some operators don't require a path (they check the root object)
+        path_not_required_ops = {"is_error", "no_error"}
+        
         check_path = check.get("path")
-        if not check_path:
+        if not check_path and op not in path_not_required_ops:
             self.result.add_error(
                 f"{path}.check.path",
                 "Check requires a 'path' field (JSONPath expression)"
             )
-        elif not isinstance(check_path, str):
+        elif check_path and not isinstance(check_path, str):
             self.result.add_error(
                 f"{path}.check.path",
                 "Path must be a string",

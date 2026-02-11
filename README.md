@@ -103,8 +103,9 @@ orchestra run <collection.yaml> [OPTIONS]
 Options:
   -V, --verbose / --no-verbose  Show detailed step output (default: on)
   -q, --quiet                   Only show errors and final status
+  -r, --show-responses          Show full JSON responses from tool calls
   -o, --output [text|json]      Output format (default: text)
-  -r, --report-dir PATH         Directory for JSON reports (default: reports/)
+  -R, --report-dir PATH         Directory for JSON reports (default: reports/)
   --no-report                   Don't save a JSON report
 ```
 
@@ -186,14 +187,48 @@ Supported auth types: `bearer`, `api_key`, `basic`
 
 ### Assertion Operators
 
-| Operator | Description |
-|----------|-------------|
-| `jsonpath_exists` | Check if path exists |
-| `jsonpath_eq` | Check if value equals expected |
-| `jsonpath_contains` | Check if string/array contains value |
-| `jsonpath_len_eq` | Check array length equals N |
-| `jsonpath_len_gte` | Check array length >= N |
-| `jsonpath_len_lte` | Check array length <= N |
+| Operator | Description | Requires Path | Requires Value |
+|----------|-------------|---------------|----------------|
+| `jsonpath_exists` | Check if path exists | ✅ | ❌ |
+| `jsonpath_eq` | Check if value equals expected | ✅ | ✅ |
+| `jsonpath_contains` | Check if string/array contains value | ✅ | ✅ |
+| `jsonpath_len_eq` | Check array length equals N | ✅ | ✅ |
+| `jsonpath_len_gte` | Check array length >= N | ✅ | ✅ |
+| `jsonpath_len_lte` | Check array length <= N | ✅ | ✅ |
+| `is_error` | Check if MCP response has isError=true | ❌ | ❌ |
+| `no_error` | Check if MCP response has no error | ❌ | ❌ |
+
+#### Error Checking
+
+MCP servers can return successful JSON-RPC responses that contain tool execution errors (indicated by `isError: true`). Orchestra detects these and displays warnings:
+
+```yaml
+steps:
+  # Call a tool that doesn't exist
+  - id: bad_call
+    type: tool_call
+    tool: "nonexistent_tool"
+    input: {}
+    save: "$"
+  
+  # Assert that it returned an error
+  - id: check_error
+    type: assert
+    from: "bad_call"
+    check:
+      op: "is_error"  # Passes if isError=true
+```
+
+Output:
+```
+▶ Step: bad_call (tool_call)
+  Tool: nonexistent_tool
+  ⚠️  Tool returned error: MCP error -32602: Tool nonexistent_tool not found
+
+▶ Step: check_error (assert)
+  Check: is_error at $
+  ✅ Passed
+```
 
 ### Environment Variables
 

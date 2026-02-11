@@ -30,6 +30,8 @@ class AssertOp(str, Enum):
     JSONPATH_LEN_EQ = "jsonpath_len_eq"
     JSONPATH_EQ = "jsonpath_eq"
     JSONPATH_CONTAINS = "jsonpath_contains"
+    IS_ERROR = "is_error"  # Check if MCP response has isError=true
+    NO_ERROR = "no_error"  # Check if MCP response has isError=false or missing
 
 
 class TransportType(str, Enum):
@@ -113,6 +115,7 @@ class ToolCallStep:
     tool: str = ""
     input: dict[str, Any] = field(default_factory=dict)
     save: str | None = None  # JSONPath expression for what to save
+    delay_ms: int | None = None  # Optional delay after step execution
 
 
 @dataclass
@@ -122,6 +125,7 @@ class AssertStep:
     type: Literal[StepType.ASSERT] = StepType.ASSERT
     from_step: str = ""  # 'from' in YAML, renamed to avoid keyword
     check: AssertCheck | None = None
+    delay_ms: int | None = None  # Optional delay after step execution
 
 
 # Union type for all step variants

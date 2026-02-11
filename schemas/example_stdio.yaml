@@ -37,30 +37,29 @@ steps:
     input: {}
     save: "$"
 
-  # Step 3: Assert graph has entities
+  # Step 3: Assert response has no error
+  - id: assert_no_error
+    type: assert
+    from: "read_graph"
+    check:
+      op: "no_error"
+
+  # Step 4: Assert graph has entities (in content)
   - id: assert_graph_has_entities
     type: assert
     from: "read_graph"
     check:
       op: "jsonpath_exists"
-      path: "$.entities"
+      path: "$.content[0].text"
 
-  # Step 4: Assert graph has at least one entity
-  - id: assert_at_least_one_entity
+  # Step 5: Assert entities text contains "entities"
+  - id: assert_entities_in_response
     type: assert
     from: "read_graph"
     check:
-      op: "jsonpath_len_gte"
-      path: "$.entities"
-      value: 1
-
-  # Step 5: Assert first entity has a name
-  - id: assert_entity_has_name
-    type: assert
-    from: "read_graph"
-    check:
-      op: "jsonpath_exists"
-      path: "$.entities[0].name"
+      op: "jsonpath_contains"
+      path: "$.content[0].text"
+      value: "entities"
 
   # Step 6: Add an observation to existing entity
   - id: add_observation
@@ -73,10 +72,9 @@ steps:
             - "Test observation added at runtime"
     save: "$"
 
-  # Step 7: Verify observation was added
+  # Step 7: Verify observation response has no error
   - id: verify_observation
     type: assert
     from: "add_observation"
     check:
-      op: "jsonpath_exists"
-      path: "$"
+      op: "no_error"

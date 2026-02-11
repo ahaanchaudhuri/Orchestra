@@ -97,13 +97,14 @@ class SchemaParser:
             tool=step["tool"],
             input=step.get("input", {}),
             save=step.get("save"),
+            delay_ms=step.get("delay_ms"),
         )
 
     def _parse_assert(self, step: dict) -> AssertStep:
         check_data = step["check"]
         check = AssertCheck(
             op=AssertOp(check_data["op"]),
-            path=check_data["path"],
+            path=check_data.get("path", "$"),  # Default to root for ops that don't need path
             value=check_data.get("value"),
         )
         return AssertStep(
@@ -111,4 +112,5 @@ class SchemaParser:
             type=StepType.ASSERT,
             from_step=step["from"],
             check=check,
+            delay_ms=step.get("delay_ms"),
         )

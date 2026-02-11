@@ -189,19 +189,26 @@ async def run_collection_async(
                     
                     if response.success:
                         result = response.result
-                        if step.save == "$":
-                            content = result.get("content", [])
-                            if content and content[0].get("type") == "text":
-                                try:
-                                    step_results[step.id] = json.loads(content[0].get("text", "{}"))
-                                except json.JSONDecodeError:
-                                    step_results[step.id] = content[0].get("text", "")
-                            else:
-                                step_results[step.id] = content
+                        
+                        # Always store the raw response for assertions
+                        step_results[step.id] = result
+                        
+                        # Check for MCP error in the response
+                        is_mcp_error = result.get("isError", False) if isinstance(result, dict) else False
                         
                         reporter.complete_step_success(step.id, output=result)
+                        
                         if verbose and not quiet:
-                            console.print(f"  [green]✅ Success[/green]")
+                            if is_mcp_error:
+                                # Extract error message from content
+                                error_msg = "Unknown MCP error"
+                                if isinstance(result, dict) and "content" in result:
+                                    content = result["content"]
+                                    if isinstance(content, list) and len(content) > 0:
+                                        error_msg = content[0].get("text", error_msg)
+                                console.print(f"  [yellow]⚠️  Tool returned error:[/yellow] {error_msg}")
+                            else:
+                                console.print(f"  [green]✅ Success[/green]")
                             
                             # Show response if flag is set
                             if show_responses and result:
@@ -248,6 +255,10 @@ async def run_collection_async(
                         result = engine.length_lte(source_data, check.path, check.value)
                     elif check.op == AssertOp.JSONPATH_LEN_EQ:
                         result = engine.length_eq(source_data, check.path, check.value)
+                    elif check.op == AssertOp.IS_ERROR:
+                        result = engine.is_error(source_data)
+                    elif check.op == AssertOp.NO_ERROR:
+                        result = engine.no_error(source_data)
                     else:
                         reporter.complete_step_error(step.id, f"Unknown assertion op: {check.op}")
                         continue
@@ -270,6 +281,12 @@ async def run_collection_async(
                 reporter.complete_step_error(step.id, f"{type(e).__name__}: {e}")
                 if not quiet:
                     console.print(f"  [red]❌ Error:[/red] {type(e).__name__}: {e}")
+            
+            # Apply delay if specified for this step
+            if step.delay_ms and step.delay_ms > 0:
+                if verbose and not quiet:
+                    console.print(f"  [dim]⏱️  Waiting {step.delay_ms}ms...[/dim]")
+                await asyncio.sleep(step.delay_ms / 1000.0)
             
             if verbose and not quiet:
                 console.print()

@@ -1,0 +1,97 @@
+version: 1
+name: "Assertion Examples"
+
+server:
+  transport: "http"
+  url: "http://localhost:3005/mcp"
+
+env:
+  TEST_MESSAGE: "Hello World"
+
+defaults:
+  timeout_ms: 10000
+  retries: 0
+
+steps:
+  # Get a successful response
+  - id: echo_success
+    type: tool_call
+    tool: "echo"
+    input:
+      message: "{{env.TEST_MESSAGE}}"
+    save: "$"
+
+  # Demonstrate no_error assertion
+  - id: assert_no_error
+    type: assert
+    from: "echo_success"
+    check:
+      op: "no_error"
+  
+  # Demonstrate jsonpath_exists
+  - id: assert_content_exists
+    type: assert
+    from: "echo_success"
+    check:
+      op: "jsonpath_exists"
+      path: "$.content[0].text"
+  
+  # Demonstrate jsonpath_contains (string)
+  - id: assert_contains_hello
+    type: assert
+    from: "echo_success"
+    check:
+      op: "jsonpath_contains"
+      path: "$.content[0].text"
+      value: "Hello"
+  
+  # Demonstrate jsonpath_eq (exact match)
+  - id: assert_exact_message
+    type: assert
+    from: "echo_success"
+    check:
+      op: "jsonpath_eq"
+      path: "$.content[0].text"
+      value: "Echo: Hello World"
+  
+  # Demonstrate jsonpath_len_gte (array length)
+  - id: assert_content_length
+    type: assert
+    from: "echo_success"
+    check:
+      op: "jsonpath_len_gte"
+      path: "$.content"
+      value: 1
+
+  # Call a non-existent tool to get an error
+  - id: call_invalid_tool
+    type: tool_call
+    tool: "nonexistent_tool"
+    input:
+      data: "test"
+    save: "$"
+
+  # Demonstrate is_error assertion
+  - id: assert_is_error
+    type: assert
+    from: "call_invalid_tool"
+    check:
+      op: "is_error"
+  
+  # Even errors have content, we can check it
+  - id: assert_error_content
+    type: assert
+    from: "call_invalid_tool"
+    check:
+      op: "jsonpath_exists"
+      path: "$.content[0].text"
+  
+  # Check that error message contains expected text
+  - id: assert_error_message
+    type: assert
+    from: "call_invalid_tool"
+    check:
+      op: "jsonpath_contains"
+      path: "$.content[0].text"
+      value: "not found"
+

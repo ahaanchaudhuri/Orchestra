@@ -242,6 +242,66 @@ class AssertionEngine:
         """
         return self._check_length(data, path, exact_length, "eq")
 
+    def is_error(self, data: Any) -> AssertionResult:
+        """
+        Assert that an MCP response has isError=true.
+        
+        Args:
+            data: The JSON data from an MCP tool call response
+            
+        Returns:
+            AssertionResult indicating pass/fail
+        """
+        is_error = data.get("isError", False) if isinstance(data, dict) else False
+        
+        if is_error:
+            error_text = ""
+            if isinstance(data, dict) and "content" in data:
+                content = data["content"]
+                if isinstance(content, list) and len(content) > 0:
+                    error_text = content[0].get("text", "")
+            
+            return AssertionResult.passed_result(
+                message="Response has isError=true as expected",
+                actual=f"Error: {error_text}" if error_text else "isError=true",
+            )
+        else:
+            return AssertionResult.failed_result(
+                message="Response does not have isError=true",
+                expected="isError=true",
+                actual="isError=false or missing",
+            )
+
+    def no_error(self, data: Any) -> AssertionResult:
+        """
+        Assert that an MCP response does NOT have isError=true.
+        
+        Args:
+            data: The JSON data from an MCP tool call response
+            
+        Returns:
+            AssertionResult indicating pass/fail
+        """
+        is_error = data.get("isError", False) if isinstance(data, dict) else False
+        
+        if not is_error:
+            return AssertionResult.passed_result(
+                message="Response has no error flag",
+                actual="isError=false or missing",
+            )
+        else:
+            error_text = ""
+            if isinstance(data, dict) and "content" in data:
+                content = data["content"]
+                if isinstance(content, list) and len(content) > 0:
+                    error_text = content[0].get("text", "")
+            
+            return AssertionResult.failed_result(
+                message="Response has isError=true",
+                expected="no error",
+                actual=f"Error: {error_text}" if error_text else "isError=true",
+            )
+
     def _check_length(
         self, data: Any, path: str, expected_length: int, op: str
     ) -> AssertionResult:
