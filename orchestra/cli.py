@@ -21,6 +21,7 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
+from .interactive import build_collection_interactive
 from .schema_parsing import (
     load_collection,
     load_server_config,
@@ -605,6 +606,34 @@ async def inspect_server_async(server_config: ServerConfig, verbose: bool):
             import traceback
             console.print(traceback.format_exc())
         raise
+
+
+@app.command()
+def new(
+    output: Path = typer.Argument(
+        Path("schemas/my_collection.yaml"),
+        help="Path where the new collection should be saved"
+    ),
+):
+    """
+    Create a new test collection with an interactive wizard.
+    
+    This command guides you through creating a collection by asking questions
+    about your MCP server and the tests you want to run. Perfect for beginners!
+    
+    Example:
+        orchestra new schemas/my_test.yaml
+    """
+    try:
+        success = build_collection_interactive(output)
+        if not success:
+            raise typer.Exit(code=1)
+    except KeyboardInterrupt:
+        console.print("\n\n[yellow]✗ Cancelled[/yellow]")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"\n[bold red]✗ Error:[/bold red] {e}")
+        raise typer.Exit(code=1)
 
 
 @app.command()
