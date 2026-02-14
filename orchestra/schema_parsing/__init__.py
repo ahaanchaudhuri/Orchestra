@@ -17,7 +17,7 @@ Usage:
 """
 
 # Public API
-from .loader import load_collection, validate_collection_yaml
+from .loader import load_collection, load_server_config, validate_collection_yaml
 
 # Models (for type hints and isinstance checks)
 from .models import (
@@ -41,6 +41,7 @@ from .validation import SchemaValidator, ValidationError, ValidationResult
 __all__ = [
     # Loader functions
     "load_collection",
+    "load_server_config",
     "validate_collection_yaml",
     # Models
     "Collection",

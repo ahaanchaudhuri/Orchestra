@@ -23,7 +23,9 @@ from rich.table import Table
 from . import __version__
 from .schema_parsing import (
     load_collection,
+    load_server_config,
     Collection,
+    ServerConfig,
     ToolCallStep,
     AssertStep,
     AssertOp,
@@ -428,6 +430,181 @@ def validate(
         console.print(f"\n[red]❌ Validation failed:[/red]")
         console.print(str(validation))
         raise typer.Exit(code=1)
+
+
+@app.command()
+def inspect(
+    schema_file: Path = typer.Argument(
+        ...,
+        help="YAML schema file with server connection config",
+        exists=True,
+    ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v",
+        help="Show detailed connection info"
+    ),
+):
+    """
+    Inspect an MCP server to discover available tools and their schemas.
+    
+    This command connects to an MCP server and displays all available tools
+    with their parameter schemas, making it easy to write correct test YAMLs.
+    
+    The schema file only needs to contain server connection info (version, name, server).
+    No test steps are required for inspection.
+    
+    Example:
+        orchestra inspect schemas/my_server.yaml
+    """
+    console.print("\n📄 Loading server config...", style="bold cyan")
+    
+    try:
+        # Load only the server config (no steps required)
+        server_config, validation_result = load_server_config(schema_file)
+        
+        if not validation_result.is_valid or not server_config:
+            console.print(f"\n❌ Validation failed:", style="bold red")
+            console.print(str(validation_result))
+            raise typer.Exit(code=1)
+        
+        console.print(f"   ✅ Server config loaded\n")
+        
+        # Run the inspection asynchronously
+        asyncio.run(inspect_server_async(server_config, verbose))
+        
+    except FileNotFoundError:
+        console.print(f"\n❌ File not found: {schema_file}", style="bold red")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        console.print(f"\n❌ Error: {e}", style="bold red")
+        if verbose:
+            import traceback
+            console.print(traceback.format_exc())
+        raise typer.Exit(code=1)
+
+
+async def inspect_server_async(server_config: ServerConfig, verbose: bool):
+    """
+    Async function to inspect an MCP server.
+    
+    Args:
+        server_config: Server configuration with connection details
+        verbose: Whether to show detailed output
+    """
+    console.print("📡 Connecting to MCP server...", style="bold cyan")
+    
+    try:
+        # Create transport based on server config
+        transport = create_transport(server_config)
+        
+        async with transport:
+            # Get server info from initialize
+            init_response = await transport.initialize()
+            
+            # Extract server info from the response
+            server_name = "Unknown"
+            server_version = "Unknown"
+            
+            if init_response.success and init_response.result:
+                result = init_response.result
+                if isinstance(result, dict):
+                    server_info = result.get('serverInfo', {})
+                    server_name = server_info.get('name', 'Unknown')
+                    server_version = server_info.get('version', 'Unknown')
+            
+            console.print(f"   ✅ Connected to {server_name} v{server_version}\n")
+            
+            # List available tools
+            console.print("🔍 Discovering tools...\n", style="bold cyan")
+            tools_response = await transport.list_tools()
+            
+            # Parse tools from response
+            tools = []
+            if tools_response.success and tools_response.result:
+                result = tools_response.result
+                if isinstance(result, dict) and 'tools' in result:
+                    tools = result['tools']
+            
+            if not tools:
+                console.print("⚠️  No tools found", style="yellow")
+                return
+            
+            console.print(f"Found [bold]{len(tools)}[/bold] tool(s):\n")
+            
+            # Display each tool with its schema
+            for i, tool in enumerate(tools, 1):
+                tool_name = tool.get('name', 'Unknown')
+                tool_desc = tool.get('description', 'No description')
+                input_schema = tool.get('inputSchema', {})
+                
+                console.print(f"[bold cyan]{i}. {tool_name}[/bold cyan]")
+                console.print(f"   {tool_desc}\n")
+                
+                # Show input schema
+                if input_schema:
+                    properties = input_schema.get('properties', {})
+                    required = input_schema.get('required', [])
+                    
+                    if properties:
+                        console.print("   [bold]Parameters:[/bold]")
+                        for param_name, param_info in properties.items():
+                            param_type = param_info.get('type', 'any')
+                            param_desc = param_info.get('description', '')
+                            is_required = param_name in required
+                            required_badge = "[red]*[/red]" if is_required else " "
+                            
+                            console.print(f"   {required_badge} [green]{param_name}[/green] ({param_type})")
+                            if param_desc:
+                                console.print(f"      {param_desc}")
+                        
+                        console.print()
+                        
+                        # Show example YAML snippet
+                        console.print("   [bold]Example YAML:[/bold]")
+                        console.print(f"   [dim]- id: call_{tool_name}[/dim]")
+                        console.print(f"   [dim]  type: tool_call[/dim]")
+                        console.print(f"   [dim]  tool: \"{tool_name}\"[/dim]")
+                        console.print(f"   [dim]  input:[/dim]")
+                        
+                        for param_name, param_info in properties.items():
+                            param_type = param_info.get('type', 'any')
+                            if param_type == 'string':
+                                example = f"\"{param_name}_value\""
+                            elif param_type == 'number' or param_type == 'integer':
+                                example = "123"
+                            elif param_type == 'boolean':
+                                example = "true"
+                            elif param_type == 'array':
+                                example = "[]"
+                            elif param_type == 'object':
+                                example = "{}"
+                            else:
+                                example = "\"value\""
+                            
+                            console.print(f"   [dim]    {param_name}: {example}[/dim]")
+                        
+                        console.print(f"   [dim]  save: \"$\"[/dim]")
+                        console.print()
+                    else:
+                        console.print("   [dim]No parameters[/dim]\n")
+                else:
+                    console.print("   [dim]No input schema[/dim]\n")
+                
+                # Show raw JSON schema if verbose
+                if verbose:
+                    console.print("   [bold]Raw Schema:[/bold]")
+                    console.print(f"   [dim]{json.dumps(input_schema, indent=2)}[/dim]\n")
+            
+            console.print("=" * 60)
+            console.print(f"✅ Inspection complete! Found {len(tools)} tool(s)")
+            console.print("=" * 60)
+            
+    except Exception as e:
+        console.print(f"\n❌ Connection failed: {e}", style="bold red")
+        if verbose:
+            import traceback
+            console.print(traceback.format_exc())
+        raise
 
 
 @app.command()
