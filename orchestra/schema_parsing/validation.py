@@ -419,7 +419,7 @@ class SchemaValidator:
 
         # Some operators don't require a path (they check the root object)
         path_not_required_ops = {"is_error", "no_error"}
-        
+
         check_path = check.get("path")
         if not check_path and op not in path_not_required_ops:
             self.result.add_error(

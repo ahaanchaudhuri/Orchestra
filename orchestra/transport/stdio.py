@@ -58,7 +58,7 @@ class STDIOTransport(BaseTransport):
         try:
             # Build the full command
             cmd = [self.command] + self.args
-            
+
             # Merge provided env with parent process env
             # This allows subprocess to access both custom and system env vars
             import os

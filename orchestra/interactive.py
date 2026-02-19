@@ -19,8 +19,9 @@ console = Console()
 class CollectionBuilder:
     """Interactive builder for creating Orchestra test collections."""
     
-    def __init__(self):
+    def __init__(self, default_filename: Optional[Path] = None):
         self.name: str = ""
+        self.filename: Optional[Path] = default_filename
         self.transport: str = ""
         self.url: Optional[str] = None
         self.command: Optional[str] = None
@@ -32,6 +33,7 @@ class CollectionBuilder:
         """Run the interactive wizard and return YAML content."""
         self._welcome()
         self._ask_basics()
+        self._ask_filename()
         self._ask_transport()
         self._ask_auth()
         self._ask_steps()
@@ -55,6 +57,23 @@ class CollectionBuilder:
             default="My MCP Test"
         )
         console.print(f"✓ Collection name: [green]{self.name}[/green]\n")
+    
+    def _ask_filename(self):
+        """Ask for output filename."""
+        # Generate a default filename from collection name if not provided
+        if self.filename is None:
+            # Convert collection name to a safe filename
+            safe_name = "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in self.name).lower()
+            default_path = Path("schemas") / f"{safe_name}.yaml"
+        else:
+            default_path = self.filename
+        
+        filename_str = Prompt.ask(
+            "[bold]Where should this collection be saved?[/bold]",
+            default=str(default_path)
+        )
+        self.filename = Path(filename_str)
+        console.print(f"✓ Output file: [green]{self.filename}[/green]\n")
     
     def _ask_transport(self):
         """Ask about transport type."""
@@ -110,6 +129,20 @@ class CollectionBuilder:
             self.command = Prompt.ask("Enter command", default="python")
             args_str = Prompt.ask("Enter arguments (space-separated)", default="server.py")
             self.args = args_str.split()
+        
+        # Ask for additional arguments (e.g., --stdio, --port, --host)
+        console.print()
+        add_more = Confirm.ask(
+            "Add additional arguments (e.g., --stdio, --port, --no-usage-statistics)?",
+            default=False
+        )
+        if add_more:
+            extra_args = Prompt.ask(
+                "Enter additional arguments (space-separated)",
+                default=""
+            )
+            if extra_args.strip():
+                self.args.extend(extra_args.strip().split())
         
         console.print(f"✓ Command: [green]{self.command} {' '.join(self.args)}[/green]")
     
@@ -268,13 +301,16 @@ def build_collection_interactive(output_file: Path) -> bool:
     Run the interactive collection builder.
     
     Args:
-        output_file: Path where the YAML should be saved
+        output_file: Default path where the YAML should be saved (can be overridden in wizard)
     
     Returns:
         True if collection was created successfully
     """
-    builder = CollectionBuilder()
+    builder = CollectionBuilder(default_filename=output_file)
     yaml_content = builder.run()
+    
+    # Use the filename from the builder (set during wizard)
+    final_output_file = builder.filename or output_file
     
     # Show preview
     console.print("[bold]📄 Generated Collection:[/bold]\n")
@@ -283,19 +319,19 @@ def build_collection_interactive(output_file: Path) -> bool:
     
     # Confirm save
     should_save = Confirm.ask(
-        f"Save to [cyan]{output_file}[/cyan]?",
+        f"Save to [cyan]{final_output_file}[/cyan]?",
         default=True
     )
     
     if should_save:
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_text(yaml_content)
+        final_output_file.parent.mkdir(parents=True, exist_ok=True)
+        final_output_file.write_text(yaml_content)
         
-        console.print(f"\n✅ Collection saved to [green]{output_file}[/green]")
+        console.print(f"\n✅ Collection saved to [green]{final_output_file}[/green]")
         console.print("\n[bold cyan]Next steps:[/bold cyan]")
-        console.print(f"  1. Run [cyan]orchestra inspect {output_file}[/cyan] to discover tools")
-        console.print(f"  2. Edit [cyan]{output_file}[/cyan] to add your test steps")
-        console.print(f"  3. Run [cyan]orchestra run {output_file}[/cyan] to execute tests")
+        console.print(f"  1. Run [cyan]orchestra inspect {final_output_file}[/cyan] to discover tools")
+        console.print(f"  2. Edit [cyan]{final_output_file}[/cyan] to add your test steps")
+        console.print(f"  3. Run [cyan]orchestra run {final_output_file}[/cyan] to execute tests")
         console.print()
         
         return True
